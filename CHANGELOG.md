@@ -6,6 +6,15 @@ Anvil Cost Calculator is versioned semantically (`MAJOR.MINOR.PATCH`).
 It runs on Minecraft 26.3 (Fabric + Forge + NeoForge, Java 25) and requires
 [Mycel](https://github.com/MyCelium-GG/MyCel-Lib) (`my.celium.org`).
 
+## [1.0.1] - 2026-10-19
+
+### Changed
+
+- Updated Mycel lib to 1.3.0: Mycel's chat messages now use the MyCelium wiki's
+  red style.
+- Checks for new versions through the MyCelium wiki (one log line when an
+  update is out; turn off with `enableUpdateChecker` in `config/mycel.json`).
+
 ## [1.0.0] - 2026-10-18
 
 ### Added
