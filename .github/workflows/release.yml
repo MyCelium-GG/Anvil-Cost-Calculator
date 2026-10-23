@@ -1,20 +1,34 @@
 name: release
 
-# Cut a release by pushing a version tag (e.g. 1.0.0).
-# Builds all three loader jars (plus sources) and attaches them to a
-# GitHub Release.
+# Cut a release by pushing a version tag (e.g. 1.0.0): builds the three loader
+# jars, attaches them to a GitHub Release and uploads them to CurseForge
+# (project id and side in gradle.properties, token in the CURSEFORGE_TOKEN
+# secret). Run it by hand with an existing tag to (re)publish that version.
 on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+      curseforge:
+        description: Upload to CurseForge
+        type: boolean
+        default: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
@@ -26,10 +40,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists; leaving it as is."
+            exit 0
+          fi
           MC_VERSION=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Anvil Cost Calculator $GITHUB_REF_NAME" \
+          gh release create "$TAG" \
+            --title "Anvil Cost Calculator $TAG" \
             --notes "For Minecraft $MC_VERSION (Fabric, Forge, NeoForge). Requires Mycel and Java 25." \
-            fabric/build/libs/anvilcostcalculator-*.jar \
-            forge/build/libs/anvilcostcalculator-*.jar \
-            neoforge/build/libs/anvilcostcalculator-*.jar
+            $(ls fabric/build/libs/anvilcostcalculator-*.jar forge/build/libs/anvilcostcalculator-*.jar neoforge/build/libs/anvilcostcalculator-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
+      - name: Upload to CurseForge
+        if: ${{ github.event_name == 'push' || inputs.curseforge }}
+        uses: MyCelium-GG/MyCel-Lib/.github/actions/curseforge-upload@main
+        with:
+          token: ${{ secrets.CURSEFORGE_TOKEN }}
+          name: Anvil Cost Calculator
+          version: ${{ env.TAG }}
+          files: |
+            fabric=fabric/build/libs/anvilcostcalculator-fabric-*.jar
+            forge=forge/build/libs/anvilcostcalculator-forge-*.jar
+            neoforge=neoforge/build/libs/anvilcostcalculator-neoforge-*.jar
