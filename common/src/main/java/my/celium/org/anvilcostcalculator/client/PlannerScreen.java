@@ -13,6 +13,7 @@ import my.celium.org.anvilcostcalculator.AnvilMath;
 import my.celium.org.anvilcostcalculator.AnvilMath.Piece;
 import my.celium.org.anvilcostcalculator.AnvilMath.Plan;
 import my.celium.org.anvilcostcalculator.AnvilMath.Step;
+import my.celium.org.client.MycelTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -27,8 +28,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.TextColor;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.inventory.AnvilMenu;
@@ -50,26 +49,24 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
  * with its items in place. Client only.
  */
 public final class PlannerScreen extends Screen {
-    // MyCelium wiki dark theme (MyCelium Web/public/assets/style.css): flat neutrals,
-    // one red accent, 2px borders, hard offset card shadows. Green/orange are the
-    // wiki's code-highlight tokens, used only for cost.
-    static final int COLOR_SHADE = 0xD8171717;
-    static final int COLOR_BG = 0xFF171717;
-    static final int COLOR_SURFACE = 0xFF262626;
-    static final int COLOR_BORDER = 0xFF383838;
-    static final int COLOR_SHADOW = 0x66000000;
-    static final int COLOR_HEADER_EDGE = 0x40000000;
-    static final int COLOR_ACCENT = 0xFFEF5350;
-    static final int COLOR_ACCENT_DARK = 0xFFB71C1C;
-    static final int COLOR_NOTE = 0xFF2B1A1A;
-    static final int COLOR_HEADING = 0xFFFFFFFF;
-    static final int COLOR_TEXT = 0xFFE6E6E6;
-    static final int COLOR_DIM = 0xFFA3A3A3;
-    static final int COLOR_OFF = 0xFF5F5F5F;
-    static final int COLOR_GOOD = 0xFF7EE787;
-    static final int COLOR_WARN = 0xFFFFA657;
-    static final int COLOR_BAD = COLOR_ACCENT;
-    static final int COLOR_ZEBRA = 0x08FFFFFF;
+    // MyCelium wiki dark theme, shared through Mycel. Green/orange mark cost only.
+    static final int COLOR_SHADE = MycelTheme.SHADE;
+    static final int COLOR_BG = MycelTheme.BG;
+    static final int COLOR_SURFACE = MycelTheme.SURFACE;
+    static final int COLOR_BORDER = MycelTheme.BORDER;
+    static final int COLOR_SHADOW = MycelTheme.SHADOW;
+    static final int COLOR_HEADER_EDGE = MycelTheme.HEADER_EDGE;
+    static final int COLOR_ACCENT = MycelTheme.ACCENT;
+    static final int COLOR_ACCENT_DARK = MycelTheme.ACCENT_DARK;
+    static final int COLOR_NOTE = MycelTheme.NOTE;
+    static final int COLOR_HEADING = MycelTheme.HEADING;
+    static final int COLOR_TEXT = MycelTheme.TEXT;
+    static final int COLOR_DIM = MycelTheme.DIM;
+    static final int COLOR_OFF = MycelTheme.OFF;
+    static final int COLOR_GOOD = MycelTheme.GOOD;
+    static final int COLOR_WARN = MycelTheme.WARN;
+    static final int COLOR_BAD = MycelTheme.BAD;
+    static final int COLOR_ZEBRA = MycelTheme.ZEBRA;
     static final int COLOR_ROW_HOVER = COLOR_SURFACE;
     static final int COLOR_CHIP_BAD = COLOR_NOTE;
     /** Steps up to this many levels count as cheap (green). */
@@ -305,9 +302,7 @@ public final class PlannerScreen extends Screen {
 
     /** A wiki card: hard offset shadow, 2px border, flat body. */
     private static void panel(GuiGraphicsExtractor gfx, int x0, int y0, int x1, int y1) {
-        gfx.fill(x0 + 3, y0 + 3, x1 + 3, y1 + 3, COLOR_SHADOW);
-        gfx.fill(x0, y0, x1, y1, COLOR_BORDER);
-        gfx.fill(x0 + 2, y0 + 2, x1 - 2, y1 - 2, COLOR_BG);
+        MycelTheme.panel(gfx, x0, y0, x1, y1);
     }
 
     private int columns() {
@@ -591,7 +586,7 @@ public final class PlannerScreen extends Screen {
     }
 
     private static MutableComponent colored(String text, int argb) {
-        return Component.literal(text).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(argb & 0xFFFFFF)));
+        return MycelTheme.colored(text, argb);
     }
 
     private String resultText(Plan current) {

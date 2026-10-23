@@ -2,11 +2,10 @@ package my.celium.org.anvilcostcalculator.client;
 
 import my.celium.org.anvilcostcalculator.AnvilCostCalculatorMod;
 import my.celium.org.anvilcostcalculator.AnvilMath;
+import my.celium.org.util.TextUtil;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -15,9 +14,9 @@ import net.minecraft.world.item.ItemStack;
  * next anvil step, e.g. {@code "Anvil uses: 2 · Prior work +3 lv"}. Never throws.
  */
 public final class TooltipLines {
-    static final int COLOR_LABEL = 0xA3A3A3;
-    static final int COLOR_VALUE = 0xE6E6E6;
-    static final int COLOR_MAXED = 0xEF5350;
+    static final int COLOR_LABEL = TextUtil.MUTED;
+    static final int COLOR_VALUE = TextUtil.BODY;
+    static final int COLOR_MAXED = TextUtil.ERROR;
 
     private TooltipLines() {
     }
@@ -50,6 +49,6 @@ public final class TooltipLines {
     }
 
     private static MutableComponent colored(String text, int rgb) {
-        return Component.literal(text).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb)));
+        return TextUtil.hex(text, rgb);
     }
 }
