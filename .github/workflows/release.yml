@@ -60,3 +60,11 @@ jobs:
             fabric=fabric/build/libs/anvilcostcalculator-fabric-*.jar
             forge=forge/build/libs/anvilcostcalculator-forge-*.jar
             neoforge=neoforge/build/libs/anvilcostcalculator-neoforge-*.jar
+      # From main, like the CurseForge step. Only for new tags: re-running an
+      # old release by hand must not announce it again.
+      - name: Announce on Discord
+        if: ${{ github.event_name == 'push' }}
+        uses: MyCelium-GG/MyCel-Lib/.github/actions/discord-announce@main
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          version: ${{ env.TAG }}
