@@ -11,15 +11,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import my.celium.org.Mycel;
-import my.celium.org.internal.PlatformHolder;
 import my.celium.org.anvilcostcalculator.client.AnvilButton;
 import my.celium.org.anvilcostcalculator.client.TooltipLines;
+import my.celium.org.testing.MycelTesting;
 
 /** The mod boots on Mycel with a tiny, well-defaulted config. */
 class AnvilCostCalculatorModTest {
     @BeforeAll
     static void initOnce(@TempDir Path tempDir) {
-        PlatformHolder.setForTesting(new AnvilCostCalculatorTestPlatform(tempDir));
+        MycelTesting.useConfigDir(tempDir);
         AnvilCostCalculatorMod.init();
     }
 
