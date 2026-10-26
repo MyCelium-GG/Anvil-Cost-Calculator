@@ -3,7 +3,8 @@ name: release
 # Cut a release by pushing a version tag (e.g. 1.0.0): builds the three loader
 # jars, attaches them to a GitHub Release and uploads them to CurseForge
 # (project id and side in gradle.properties, token in the CURSEFORGE_TOKEN
-# secret). Run it by hand with an existing tag to (re)publish that version.
+# secret) and Modrinth (modrinth_project_id and modrinth_environment, token in
+# MODRINTH_TOKEN). Run it by hand with an existing tag to (re)publish that version.
 on:
   push:
     tags:
@@ -17,6 +18,10 @@ on:
         description: Upload to CurseForge
         type: boolean
         default: true
+      modrinth:
+        description: Upload to Modrinth
+        type: boolean
+        default: true
 
 jobs:
   release:
@@ -26,11 +31,11 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.ref }}
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
@@ -51,7 +56,7 @@ jobs:
             $(ls fabric/build/libs/anvilcostcalculator-*.jar forge/build/libs/anvilcostcalculator-*.jar neoforge/build/libs/anvilcostcalculator-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
       - name: Upload to CurseForge
         if: ${{ github.event_name == 'push' || inputs.curseforge }}
-        uses: MyCelium-GG/MyCel-Lib/.github/actions/curseforge-upload@main
+        uses: MyCelium-GG/MyCel-Lib/.github/actions/curseforge-upload@v1
         with:
           token: ${{ secrets.CURSEFORGE_TOKEN }}
           name: Anvil Cost Calculator
@@ -60,11 +65,22 @@ jobs:
             fabric=fabric/build/libs/anvilcostcalculator-fabric-*.jar
             forge=forge/build/libs/anvilcostcalculator-forge-*.jar
             neoforge=neoforge/build/libs/anvilcostcalculator-neoforge-*.jar
-      # From main, like the CurseForge step. Only for new tags: re-running an
-      # old release by hand must not announce it again.
+      - name: Upload to Modrinth
+        if: ${{ github.event_name == 'push' || inputs.modrinth }}
+        uses: MyCelium-GG/MyCel-Lib/.github/actions/modrinth-upload@v1
+        with:
+          token: ${{ secrets.MODRINTH_TOKEN }}
+          name: Anvil Cost Calculator
+          version: ${{ env.TAG }}
+          files: |
+            fabric=fabric/build/libs/anvilcostcalculator-fabric-*.jar
+            forge=forge/build/libs/anvilcostcalculator-forge-*.jar
+            neoforge=neoforge/build/libs/anvilcostcalculator-neoforge-*.jar
+      # Only for new tags: re-running an old release by hand must not announce
+      # it again.
       - name: Announce on Discord
         if: ${{ github.event_name == 'push' }}
-        uses: MyCelium-GG/MyCel-Lib/.github/actions/discord-announce@main
+        uses: MyCelium-GG/MyCel-Lib/.github/actions/discord-announce@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           version: ${{ env.TAG }}

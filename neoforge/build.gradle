@@ -26,6 +26,10 @@ neoForge {
         client {
             client()
             gameDirectory = this.mkdir(this.file('runs/client'))
+            // -PquickPlay=localhost:25565 joins that server right after start-up.
+            if (project.hasProperty('quickPlay')) {
+                programArguments.addAll('--quickPlayMultiplayer', project.property('quickPlay').toString())
+            }
         }
         server {
             server()

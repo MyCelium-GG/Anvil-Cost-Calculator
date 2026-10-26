@@ -25,6 +25,10 @@ minecraft {
     runs {
         register('client') {
             workingDir = layout.projectDirectory.dir('runs/client')
+            // -PquickPlay=localhost:25565 joins that server right after start-up.
+            if (project.hasProperty('quickPlay')) {
+                args '--quickPlayMultiplayer', project.property('quickPlay').toString()
+            }
         }
         register('server') {
             workingDir = layout.projectDirectory.dir('runs/server')
