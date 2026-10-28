@@ -13,6 +13,7 @@ import my.celium.org.anvilcostcalculator.AnvilMath;
 import my.celium.org.anvilcostcalculator.AnvilMath.Piece;
 import my.celium.org.anvilcostcalculator.AnvilMath.Plan;
 import my.celium.org.anvilcostcalculator.AnvilMath.Step;
+import my.celium.org.client.MycelScreens;
 import my.celium.org.client.MycelTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -270,9 +271,9 @@ public final class PlannerScreen extends Screen {
         boolean anvilOpen = player != null && player.containerMenu == parent.getMenu();
         AnvilCostCalculatorMod.debug("Planner closed, returning to {}", anvilOpen ? "anvil" : "game");
         if (anvilOpen) {
-            minecraft.gui.setScreen(parent);
+            MycelScreens.open(parent);
         } else {
-            minecraft.gui.setScreen(null);
+            MycelScreens.open(null);
         }
     }
 

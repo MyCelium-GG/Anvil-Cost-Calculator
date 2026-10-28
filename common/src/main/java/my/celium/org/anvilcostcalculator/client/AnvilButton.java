@@ -3,6 +3,7 @@ package my.celium.org.anvilcostcalculator.client;
 import java.lang.reflect.Field;
 
 import my.celium.org.anvilcostcalculator.AnvilCostCalculatorMod;
+import my.celium.org.client.MycelScreens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -40,7 +41,7 @@ public final class AnvilButton {
             return Button.builder(Component.literal("XP"),
                             button -> {
                                 AnvilCostCalculatorMod.debug("Anvil button pressed, opening planner");
-                                Minecraft.getInstance().gui.setScreen(new PlannerScreen(anvil));
+                                MycelScreens.open(new PlannerScreen(anvil));
                             })
                     .bounds(left + imageWidth - WIDTH - INSET, top + INSET, WIDTH, HEIGHT)
                     .tooltip(Tooltip.create(Component.literal("Anvil Cost Calculator: plan the cheapest enchant order")))

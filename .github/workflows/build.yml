@@ -7,6 +7,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "" is the default line (gradle.properties); others come from mc/*.properties.
+        mc: ["", "26.2", "26.1"]
+    name: build ${{ matrix.mc || 'default' }}
     steps:
       - uses: actions/checkout@v7
       - name: buildSrc matches the shared copy
@@ -17,4 +23,4 @@ jobs:
           distribution: temurin
           java-version: 25
       - name: Build all loaders + tests
-        run: ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon ${{ matrix.mc && format('-Pmc={0}', matrix.mc) || '' }}

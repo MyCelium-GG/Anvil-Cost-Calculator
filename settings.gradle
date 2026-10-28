@@ -43,6 +43,28 @@ plugins {
 }
 
 rootProject.name = 'anvilcostcalculator'
+
+// Other Minecraft lines: ./gradlew build -Pmc=26.2 loads mc/26.2.properties
+// over gradle.properties and takes Mycel from its <version>-26.2 JitPack tag.
+// Without -Pmc the build targets gradle.properties' minecraft_version.
+def mc = startParameter.projectProperties.mc
+if (mc) {
+    def overrides = file("mc/${mc}.properties")
+    if (!overrides.isFile()) {
+        def known = file('mc').list()?.findAll { it.endsWith('.properties') }?.collect { it - '.properties' }
+        throw new GradleException("No mc/${mc}.properties; buildable Minecraft lines besides the default: ${known}")
+    }
+    def props = new Properties()
+    overrides.withInputStream { props.load(it) }
+    gradle.beforeProject { project ->
+        props.each { key, value -> project.ext.set(key, value) }
+        def mycel = project.property('mycel_coordinates').toString()
+        if (!mycel.endsWith("-${mc}")) {
+            project.ext.set('mycel_coordinates', "${mycel}-${mc}")
+        }
+    }
+}
+
 include('common')
 include('fabric')
 include('forge')
