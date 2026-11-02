@@ -39,7 +39,7 @@ public final class TooltipLines {
         if (repairCost <= 0) {
             return null;
         }
-        boolean maxed = repairCost >= AnvilMath.TOO_EXPENSIVE - 1;
+        boolean maxed = repairCost >= AnvilMath.TOO_EXPENSIVE - 1 && !AnvilCostCalculatorMod.liftsLevelLimit();
         int value = maxed ? COLOR_MAXED : COLOR_VALUE;
         MutableComponent line = colored("Anvil uses: ", COLOR_LABEL)
                 .append(colored(String.valueOf(AnvilMath.anvilUses(repairCost)), value))

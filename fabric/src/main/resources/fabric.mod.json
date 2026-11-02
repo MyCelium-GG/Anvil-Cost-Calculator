@@ -18,6 +18,9 @@
       "my.celium.org.anvilcostcalculator.fabric.AnvilCostCalculatorFabricClient"
     ]
   },
+  "mixins": [
+    "anvilcostcalculator.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
     "fabric-api": "*",

@@ -21,7 +21,19 @@ if (mcSources.isDirectory()) {
     sourceSets.main.java.srcDir(mcSources)
 }
 
+repositories {
+    maven {
+        name = 'Fabric'
+        url = uri('https://maven.fabricmc.net')
+        content {
+            includeGroup('net.fabricmc')
+        }
+    }
+}
+
 dependencies {
+    // Annotations only; each loader brings its own Mixin at runtime.
+    compileOnly 'net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7'
     // Mycel shared library (common API) via JitPack. `api` so loader modules
     // compiling the common sources see it too.
     api "${mycel_coordinates}"

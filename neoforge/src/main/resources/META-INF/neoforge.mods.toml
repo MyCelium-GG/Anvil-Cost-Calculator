@@ -30,3 +30,6 @@ type="required"
 versionRange="[${mycel_version},)"
 ordering="AFTER"
 side="BOTH"
+
+[[mixins]]
+config="anvilcostcalculator.mixins.json"

@@ -21,7 +21,7 @@ import my.celium.org.metadata.ModMetadata;
 public final class AnvilCostCalculatorMod {
     public static final String ID = "anvilcostcalculator";
 
-    public static final ModMetadata META = ModMetadata.builder(ID, "Anvil Cost Calculator", "1.1.0")
+    public static final ModMetadata META = ModMetadata.builder(ID, "Anvil Cost Calculator", "1.2.0")
             .author("MyCelium")
             .website("https://www.curseforge.com/minecraft/mc-mods/anvil-cost-calculator")
             .updateUrl("https://wiki.mycelium-gg.org/updates/anvilcostcalculator.json")
@@ -31,6 +31,7 @@ public final class AnvilCostCalculatorMod {
     public static ConfigValue<Boolean> showButton;
     public static ConfigValue<Boolean> showTooltip;
     public static ConfigValue<Boolean> showXpPoints;
+    public static ConfigValue<Boolean> noLevelLimit;
     public static ConfigValue<Boolean> debug;
     public static MycelConfig config;
 
@@ -51,9 +52,20 @@ public final class AnvilCostCalculatorMod {
                 "Show anvil uses and prior work penalty on item tooltips.");
         showXpPoints = builder.booleanValue("showXpPoints", true,
                 "Also show the plan's total in XP points, counted down from your current level.");
-        debug = builder.booleanValue("debug", true,
-                "Log planner clicks, picks and plan results to the game log (turn off for release).");
+        noLevelLimit = builder.booleanValue("noLevelLimit", false,
+                "Remove Too Expensive: anvil steps may cost 40 levels or more. Works in singleplayer and on servers that have the mod.");
+        debug = builder.booleanValue("debug", false,
+                "Log planner clicks, picks and plan results to the game log.");
         config = builder.build();
+    }
+
+    /** Whether anvil steps of 40 levels or more are allowed. Safe to call while the game starts. */
+    public static boolean liftsLevelLimit() {
+        try {
+            return noLevelLimit != null && noLevelLimit.get() && isModEnabled();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Info-level log line tagged {@code [debug]}, only while the {@code debug} option is on. */

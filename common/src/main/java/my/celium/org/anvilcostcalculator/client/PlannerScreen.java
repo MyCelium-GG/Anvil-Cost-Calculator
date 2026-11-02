@@ -570,7 +570,7 @@ public final class PlannerScreen extends Screen {
     private int chip(GuiGraphicsExtractor gfx, int x1, int y, String text, int levels, boolean tooExpensive) {
         int textColor;
         int fill;
-        if (tooExpensive || levels >= AnvilMath.TOO_EXPENSIVE) {
+        if (tooExpensive || levels >= AnvilMath.TOO_EXPENSIVE && !AnvilCostCalculatorMod.liftsLevelLimit()) {
             textColor = COLOR_BAD;
             fill = COLOR_CHIP_BAD;
         } else {
@@ -786,7 +786,7 @@ public final class PlannerScreen extends Screen {
         LocalPlayer player = minecraft.player;
         boolean survival = player == null || !player.hasInfiniteMaterials();
         long start = System.nanoTime();
-        plan = AnvilMath.plan(item, books, rules, survival);
+        plan = AnvilMath.plan(item, books, rules, survival && !AnvilCostCalculatorMod.liftsLevelLimit());
         dirty = false;
         AnvilCostCalculatorMod.debug("Plan for {} (+{} books, prior work {}, survival {}): {} steps, {} levels{}, {} ms",
                 label, books.size(), item.repairCost(), survival, plan.steps().size(), plan.totalLevels(),
