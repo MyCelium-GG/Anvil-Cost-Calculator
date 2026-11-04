@@ -13,6 +13,7 @@ import my.celium.org.anvilcostcalculator.AnvilMath;
 import my.celium.org.anvilcostcalculator.AnvilMath.Piece;
 import my.celium.org.anvilcostcalculator.AnvilMath.Plan;
 import my.celium.org.anvilcostcalculator.AnvilMath.Step;
+import my.celium.org.anvilcostcalculator.AnvilStats;
 import my.celium.org.client.MycelScreens;
 import my.celium.org.client.MycelTheme;
 import net.minecraft.client.Minecraft;
@@ -116,6 +117,10 @@ public final class PlannerScreen extends Screen {
         this.picking = state.item == null;
         loadItem();
         filter();
+        AnvilStats.count("planner_open");
+        if (state.item != null) {
+            AnvilStats.count("from_anvil_item");
+        }
         AnvilCostCalculatorMod.debug("Planner opened: {} enchantments, {} enchantable items, item={}, page={}",
                 allEnchantments.size(), allItems.size(), state.item, picking ? "picker" : "editor");
     }
@@ -267,6 +272,7 @@ public final class PlannerScreen extends Screen {
     /** Back to the anvil if it is still open server-side, otherwise to the game. */
     @Override
     public void onClose() {
+        reportSession();
         LocalPlayer player = minecraft.player;
         boolean anvilOpen = player != null && player.containerMenu == parent.getMenu();
         AnvilCostCalculatorMod.debug("Planner closed, returning to {}", anvilOpen ? "anvil" : "game");
@@ -764,6 +770,28 @@ public final class PlannerScreen extends Screen {
             stepScroll = Math.max(0, stepScroll + delta);
         }
         return true;
+    }
+
+    // ------------------------------------------------------------------ stats
+
+    /** One summary per planner session: the item, the books added, the cost range. */
+    private void reportSession() {
+        if (state.item == null || state.books.isEmpty()) {
+            return;
+        }
+        net.minecraft.resources.Identifier key = BuiltInRegistries.ITEM.getKey(state.item);
+        AnvilStats.count("planned_items", "minecraft".equals(key.getNamespace()) ? key.getPath() : key.toString());
+        if (target.is(Items.ENCHANTED_BOOK)) {
+            AnvilStats.count("book_mode");
+        }
+        for (String enchantment : state.books.keySet()) {
+            AnvilStats.count("planned_enchantments", enchantment.startsWith("minecraft:") ? enchantment.substring(10) : enchantment);
+        }
+        Plan current = plan();
+        AnvilStats.count("plan_levels", AnvilStats.levelRange(current.totalLevels()));
+        if (current.tooExpensive()) {
+            AnvilStats.count("too_expensive");
+        }
     }
 
     // ------------------------------------------------------------------ plan

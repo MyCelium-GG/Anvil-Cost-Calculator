@@ -6,6 +6,14 @@ Anvil Cost Calculator is versioned semantically (`MAJOR.MINOR.PATCH`).
 It runs on Minecraft 26.3, 26.2 and 26.1 (Fabric + Forge + NeoForge, Java 25) and requires
 [Mycel](https://github.com/MyCelium-GG/MyCel-Lib) (`my.celium.org`).
 
+## [1.2.2] - 2026-11-04
+
+### Changed
+- Built for Mycel 1.6.0: chat messages get the new MyCelium look, and Mycel can share anonymous stats if you agree. What is sent: https://wiki.mycelium-gg.org/privacy#mycel-stats
+
+### Added
+- Anonymous stats (which items and enchantments get planned, how expensive plans are) so we know what to improve. They follow your answer on Mycel's stats screen; nothing else is asked. What is sent: https://wiki.mycelium-gg.org/privacy#stats-anvilcostcalculator
+
 ## [1.2.1] - 2026-11-02
 
 ### Added

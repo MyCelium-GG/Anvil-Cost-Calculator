@@ -21,7 +21,7 @@ import my.celium.org.metadata.ModMetadata;
 public final class AnvilCostCalculatorMod {
     public static final String ID = "anvilcostcalculator";
 
-    public static final ModMetadata META = ModMetadata.builder(ID, "Anvil Cost Calculator", "1.2.1")
+    public static final ModMetadata META = ModMetadata.builder(ID, "Anvil Cost Calculator", "1.2.2")
             .author("MyCelium")
             .website("https://www.curseforge.com/minecraft/mc-mods/anvil-cost-calculator")
             .updateUrl("https://wiki.mycelium-gg.org/updates/anvilcostcalculator.json")
@@ -57,6 +57,7 @@ public final class AnvilCostCalculatorMod {
         debug = builder.booleanValue("debug", false,
                 "Log planner clicks, picks and plan results to the game log.");
         config = builder.build();
+        AnvilStats.start();
     }
 
     /** Whether anvil steps of 40 levels or more are allowed. Safe to call while the game starts. */

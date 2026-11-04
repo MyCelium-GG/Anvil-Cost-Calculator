@@ -59,6 +59,13 @@ diagnostics are reused.
 - Tooltips on anvil-used items show `Anvil uses: 2 · Prior work +3 lv`,
   in red once the item can no longer be worked in survival.
 
+## Anonymous stats
+
+Anvil Cost Calculator sends anonymous stats (which items and enchantments get planned, how expensive plans get, and errors in its own code) to its FastStats project through
+Mycel. It follows Mycel's choice exactly: the one-time screen in your own
+game, `shareStats` / `shareErrors` in `config/mycel.json` on servers.
+Details: https://wiki.mycelium-gg.org/privacy#stats-anvilcostcalculator
+
 ## Configuration (`config/anvilcostcalculator.json`)
 
 | Key | Default | Meaning |
