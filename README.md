@@ -13,6 +13,8 @@
   <a href="https://github.com/MyCelium-GG/Anvil-Cost-Calculator/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MyCelium-GG/Anvil-Cost-Calculator?style=flat-square&color=F2C14E" alt="License"></a>
 </p>
 
+<a href="https://www.curseforge.com/minecraft/mc-mods/mycel"><img src="https://raw.githubusercontent.com/MyCelium-GG/Anvil-Cost-Calculator/001b4b258571/docs/img/banners/mycel-required.svg" alt="Mycel is required: this mod needs the Mycel library to run. Install Mycel next to it, for the same Minecraft version and loader. Download it from CurseForge." width="100%"></a>
+
 ![About the mod](https://raw.githubusercontent.com/MyCelium-GG/Anvil-Cost-Calculator/8cb8fa798d81/docs/img/banners/about-the-mod.svg)
 
 <img src="https://raw.githubusercontent.com/MyCelium-GG/Anvil-Cost-Calculator/8cb8fa798d81/docs/img/banners/about.svg" alt="Anvil Cost Calculator Click the small XP button on the anvil to open a planner: pick any enchantable item, say what it already has and which books you want to add, and get the cheapest order to apply them - each step's level cost and the total. Client side, no keybinds." width="100%">
