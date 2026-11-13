@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -15,7 +16,6 @@ import my.celium.org.anvilcostcalculator.AnvilMath.Plan;
 import my.celium.org.anvilcostcalculator.AnvilMath.Step;
 import my.celium.org.anvilcostcalculator.AnvilStats;
 import my.celium.org.client.MycelScreens;
-import my.celium.org.client.MycelTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -24,14 +24,18 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.EnchantmentTags;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -40,54 +44,41 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 
 /**
- * The planner opened from the anvil button. Page one picks the item: every
- * item at least one enchantment can go on, plus "Enchanted Book" for
- * combining books only. Page two lists each enchantment that item accepts
- * with two level selectors - what the item already has and which book to
- * add - plus its prior anvil uses, and shows the cheapest combine order live.
+ * The planner opened from the anvil button, laid out like a normal Minecraft menu screen: a
+ * centred title, dark list areas, vanilla buttons, white and grey text, and the anvil's own green
+ * and red for level costs.
  *
- * <p>Opening it over the anvil keeps the anvil open (replacing a container
- * screen sends nothing to the server), so closing it returns to the anvil
- * with its items in place. Client only.
+ * <p>Page one picks the item from every item an enchantment can go on (plus the Enchanted Book
+ * for combining books only). Page two lists the item's enchantments, each with an "On item" and
+ * a "Book" button that cycle through the levels, and shows the cheapest order as anvil steps.
+ *
+ * <p>Opening it over the anvil keeps the anvil open (replacing a container screen sends nothing
+ * to the server), so closing it returns to the anvil with its items in place. Client only.
  */
 public final class PlannerScreen extends Screen {
-    // MyCelium wiki dark theme, shared through Mycel. Green/orange mark cost only.
-    static final int COLOR_SHADE = MycelTheme.SHADE;
-    static final int COLOR_BG = MycelTheme.BG;
-    static final int COLOR_SURFACE = MycelTheme.SURFACE;
-    static final int COLOR_BORDER = MycelTheme.BORDER;
-    static final int COLOR_SHADOW = MycelTheme.SHADOW;
-    static final int COLOR_HEADER_EDGE = MycelTheme.HEADER_EDGE;
-    static final int COLOR_ACCENT = MycelTheme.ACCENT;
-    static final int COLOR_ACCENT_DARK = MycelTheme.ACCENT_DARK;
-    static final int COLOR_NOTE = MycelTheme.NOTE;
-    static final int COLOR_HEADING = MycelTheme.HEADING;
-    static final int COLOR_TEXT = MycelTheme.TEXT;
-    static final int COLOR_DIM = MycelTheme.DIM;
-    static final int COLOR_OFF = MycelTheme.OFF;
-    static final int COLOR_GOOD = MycelTheme.GOOD;
-    static final int COLOR_WARN = MycelTheme.WARN;
-    static final int COLOR_BAD = MycelTheme.BAD;
-    static final int COLOR_ZEBRA = MycelTheme.ZEBRA;
-    static final int COLOR_ROW_HOVER = COLOR_SURFACE;
-    static final int COLOR_CHIP_BAD = COLOR_NOTE;
-    /** Steps up to this many levels count as cheap (green). */
-    static final int CHEAP_LEVELS = 15;
+    // Vanilla menu colours.
+    static final int WHITE = 0xFFFFFFFF;
+    static final int GREY = 0xFFA0A0A0;
+    static final int DARK = 0xFF707070;
+    static final int CURSE = 0xFFFF5555;
+    /** The anvil's "Enchantment Cost" green and its "Too Expensive!" red. */
+    static final int COST = 0xFF80FF20;
+    static final int TOO_EXPENSIVE = 0xFFFF6060;
+    static final int LIST_BG = 0x98000000;
+    static final int ROW_HOVER = 0x20FFFFFF;
+    static final int SLOT_HOVER = 0x80FFFFFF;
 
-    static final int TITLE_BAR = 18;
-    static final int MARGIN = 8;
+    static final Identifier BUTTON = Identifier.withDefaultNamespace("widget/button");
+    static final Identifier BUTTON_HOVER = Identifier.withDefaultNamespace("widget/button_highlighted");
+    static final Identifier BUTTON_OFF = Identifier.withDefaultNamespace("widget/button_disabled");
+
+    static final int HEADER = 33;
+    static final int FOOTER = 33;
     static final int CELL = 18;
-    static final int MAX_COLUMNS = 20;
-    static final int ROW_H = 12;
-    static final int STEP_BOX = 9;
-    static final int STEP_VALUE = 18;
-    static final int STEP_W = STEP_BOX * 2 + STEP_VALUE;
+    static final int ROW_H = 24;
+    static final int BUTTON_H = 20;
     static final int MAX_USES = 6;
-    static final int HEADER_Y = 24;
-    static final int GRID_TOP = 44;
-    static final int LIST_HEAD_Y = 46;
-    static final int LIST_TOP = 59;
-    static final int FOOTER = 32;
+    static final int MAX_W = 520;
 
     private final AnvilScreen parent;
     private final PlannerState state = PlannerState.CURRENT;
@@ -215,12 +206,14 @@ public final class PlannerScreen extends Screen {
         pickScroll = 0;
     }
 
+    // ---------------------------------------------------------------- setup
+
     @Override
     protected void init() {
-        int buttonY = height - FOOTER + 6;
+        int by = height - FOOTER + 7;
         if (picking) {
-            search = new EditBox(font, width / 2 - 80, HEADER_Y, 160, 14, Component.literal("Search"));
-            search.setHint(Component.literal("Search items…"));
+            search = new EditBox(font, width / 2 - 100, 24, 200, 16, Component.literal("Search"));
+            search.setHint(Component.literal("Search items"));
             search.setValue(state.search);
             search.setResponder(text -> {
                 state.search = text;
@@ -228,25 +221,24 @@ public final class PlannerScreen extends Screen {
             });
             addRenderableWidget(search);
             if (state.item != null) {
-                addRenderableWidget(Button.builder(Component.literal("Back to planner"), button -> showPage(false))
-                        .bounds(width / 2 - 104, buttonY, 100, 20).build());
-                addRenderableWidget(Button.builder(Component.literal("Back to anvil"), button -> onClose())
-                        .bounds(width / 2 + 4, buttonY, 100, 20).build());
+                button(width / 2 - 154, by, 150, "Back to planner", () -> showPage(false));
+                button(width / 2 + 4, by, 150, "Back to anvil", this::onClose);
             } else {
-                addRenderableWidget(Button.builder(Component.literal("Back to anvil"), button -> onClose())
-                        .bounds(width / 2 - 50, buttonY, 100, 20).build());
+                button(width / 2 - 75, by, 150, "Back to anvil", this::onClose);
             }
         } else {
             search = null;
-            addRenderableWidget(Button.builder(Component.literal("Change item"), button -> showPage(true))
-                    .bounds(MARGIN, buttonY, 80, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("Clear books"), button -> {
+            button(width / 2 - 155, by, 100, "Change item", () -> showPage(true));
+            button(width / 2 - 50, by, 100, "Clear books", () -> {
                 state.books.clear();
                 dirty = true;
-            }).bounds(MARGIN + 84, buttonY, 80, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("Back to anvil"), button -> onClose())
-                    .bounds(width - MARGIN - 100, buttonY, 100, 20).build());
+            });
+            button(width / 2 + 55, by, 100, "Back to anvil", this::onClose);
         }
+    }
+
+    private void button(int x, int y, int w, String label, Runnable action) {
+        addRenderableWidget(Button.builder(Component.literal(label), b -> action.run()).bounds(x, y, w, 20).build());
     }
 
     @Override
@@ -283,23 +275,36 @@ public final class PlannerScreen extends Screen {
         }
     }
 
+    // ---------------------------------------------------------------- layout
+
+    private int contentX0() {
+        return Math.max(8, (width - MAX_W) / 2);
+    }
+
+    private int contentX1() {
+        return width - contentX0();
+    }
+
+    private int splitX() {
+        return contentX0() + (contentX1() - contentX0()) * 56 / 100;
+    }
+
+    private int top() {
+        return picking ? HEADER + 12 : HEADER;
+    }
+
+    private int bottom() {
+        return height - FOOTER;
+    }
+
     // ---------------------------------------------------------------- render
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor gfx, int mouseX, int mouseY, float a) {
-        // Chrome first so widgets (search box, buttons) draw on top of the panels.
-        gfx.fill(0, 0, width, height, COLOR_SHADE);
-        gfx.fill(0, 0, width, TITLE_BAR, COLOR_ACCENT_DARK);
-        gfx.fill(0, TITLE_BAR - 2, width, TITLE_BAR, COLOR_HEADER_EDGE);
-        gfx.centeredText(font, title, width / 2, 4, COLOR_HEADING);
-        if (picking) {
-            panel(gfx, gridLeft() - 5, GRID_TOP - 5, gridLeft() + columns() * CELL + 8,
-                    GRID_TOP + gridRows() * CELL + 5);
-        } else {
-            panel(gfx, 4, TITLE_BAR + 2, width / 2 - 1, height - FOOTER + 2);
-            panel(gfx, width / 2 + 1, TITLE_BAR + 2, width - 4, height - FOOTER + 2);
-        }
         super.extractRenderState(gfx, mouseX, mouseY, a);
+        gfx.centeredText(font, title, width / 2, picking ? 10 : 12, WHITE);
+        separator(gfx, top() - 2);
+        separator(gfx, bottom());
         if (picking) {
             renderPicker(gfx, mouseX, mouseY);
         } else {
@@ -307,21 +312,38 @@ public final class PlannerScreen extends Screen {
         }
     }
 
-    /** A wiki card: hard offset shadow, 2px border, flat body. */
-    private static void panel(GuiGraphicsExtractor gfx, int x0, int y0, int x1, int y1) {
-        MycelTheme.panel(gfx, x0, y0, x1, y1);
+    /** The two-pixel line vanilla draws under the header and above the footer. */
+    private void separator(GuiGraphicsExtractor gfx, int y) {
+        gfx.fill(0, y, width, y + 1, 0x60000000);
+        gfx.fill(0, y + 1, width, y + 2, 0x30FFFFFF);
     }
+
+    /** A vanilla button drawn in place (used inside the scrolling lists). */
+    private void fakeButton(GuiGraphicsExtractor gfx, int x, int y, int w, Component label, boolean active,
+            boolean hover) {
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, !active ? BUTTON_OFF : hover ? BUTTON_HOVER : BUTTON, x, y, w,
+                BUTTON_H);
+        int color = active ? WHITE : GREY;
+        Component text = font.width(label) > w - 6 ? Component.literal(fit(label.getString(), w - 6)) : label;
+        gfx.centeredText(font, text, x + w / 2, y + 6, color);
+    }
+
+    // ---------------------------------------------------------------- picker
 
     private int columns() {
-        return Math.max(1, Math.min(MAX_COLUMNS, (width - MARGIN * 2 - 8) / CELL));
+        return Math.max(1, Math.min(22, (contentX1() - contentX0() - 8) / CELL));
     }
 
-    private int gridLeft() {
+    private int gridX0() {
         return (width - columns() * CELL) / 2;
     }
 
+    private int gridY0() {
+        return top() + 6;
+    }
+
     private int gridRows() {
-        return Math.max(1, (height - FOOTER - GRID_TOP - 6) / CELL);
+        return Math.max(1, (bottom() - 4 - gridY0()) / CELL);
     }
 
     private int maxPickScroll() {
@@ -330,8 +352,9 @@ public final class PlannerScreen extends Screen {
     }
 
     private void renderPicker(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        gfx.fill(0, top(), width, bottom(), LIST_BG);
         if (filtered.isEmpty()) {
-            gfx.centeredText(font, "No enchantable item matches", width / 2, GRID_TOP + 8, COLOR_DIM);
+            gfx.centeredText(font, "Nothing enchantable matches", width / 2, gridY0() + 20, GREY);
             return;
         }
         pickScroll = Math.min(pickScroll, maxPickScroll());
@@ -343,93 +366,107 @@ public final class PlannerScreen extends Screen {
                     break;
                 }
                 ItemStack stack = filtered.get(index);
-                int x = gridLeft() + col * CELL;
-                int y = GRID_TOP + row * CELL;
-                slot(gfx, x, y, stack.getItem() == state.item, index == hovered, stack.is(Items.ENCHANTED_BOOK));
+                int x = gridX0() + col * CELL;
+                int y = gridY0() + row * CELL;
+                if (stack.getItem() == state.item) {
+                    gfx.fill(x, y, x + CELL, y + CELL, 0x40FFFFFF);
+                }
                 gfx.item(stack, x + 1, y + 1);
+                if (index == hovered) {
+                    gfx.fill(x + 1, y + 1, x + CELL - 1, y + CELL - 1, SLOT_HOVER);
+                }
             }
         }
         if (hovered >= 0) {
             ItemStack stack = filtered.get(hovered);
             Component name = stack.is(Items.ENCHANTED_BOOK)
-                    ? colored("Enchanted Book", COLOR_TEXT).append(colored("  combine books only", COLOR_DIM))
-                    : colored(stack.getHoverName().getString(), COLOR_TEXT);
+                    ? colored("Enchanted Book", WHITE).append(colored("  (combine books only)", GREY))
+                    : colored(stack.getHoverName().getString(), WHITE);
             gfx.setTooltipForNextFrame(font, name, mouseX, mouseY);
         }
-        drawScrollbar(gfx, gridLeft() + columns() * CELL + 3, GRID_TOP, gridRows() * CELL, pickScroll,
-                maxPickScroll());
-    }
-
-    /** Flat tile: surface with a border, red border on hover, red tint when picked. */
-    private static void slot(GuiGraphicsExtractor gfx, int x, int y, boolean picked, boolean hovered,
-            boolean special) {
-        int x1 = x + CELL - 1;
-        int y1 = y + CELL - 1;
-        gfx.fill(x, y, x1, y1, picked || hovered ? COLOR_ACCENT : COLOR_BORDER);
-        gfx.fill(x + 1, y + 1, x1 - 1, y1 - 1, picked || special ? COLOR_NOTE : COLOR_SURFACE);
+        scrollbar(gfx, gridX0() + columns() * CELL + 6, gridY0(), gridRows() * CELL, pickScroll, maxPickScroll());
     }
 
     private int itemAt(double mouseX, double mouseY) {
-        int col = (int) Math.floor((mouseX - gridLeft()) / CELL);
-        int row = (int) Math.floor((mouseY - GRID_TOP) / CELL);
-        if (mouseX < gridLeft() || mouseY < GRID_TOP || col >= columns() || row >= gridRows()) {
+        int col = (int) Math.floor((mouseX - gridX0()) / CELL);
+        int row = (int) Math.floor((mouseY - gridY0()) / CELL);
+        if (mouseX < gridX0() || mouseY < gridY0() || col >= columns() || row >= gridRows()) {
             return -1;
         }
         int index = (row + pickScroll) * columns() + col;
         return index < filtered.size() ? index : -1;
     }
 
-    private int leftEnd() {
-        return width / 2 - 8;
+    // ---------------------------------------------------------------- editor: enchantments
+
+    private int leftX0() {
+        return contentX0();
     }
 
-    private int onItemX() {
-        return leftEnd() - STEP_W * 2 - 6;
+    private int leftX1() {
+        return splitX() - 4;
     }
 
-    private int bookX() {
-        return leftEnd() - STEP_W;
+    private int bookButtonW() {
+        return 60;
     }
 
-    private int usesY() {
-        return HEADER_Y + 1;
+    private int itemButtonW() {
+        return 76;
+    }
+
+    private int bookButtonX() {
+        return leftX1() - 6 - bookButtonW();
+    }
+
+    private int itemButtonX() {
+        return bookButtonX() - 4 - itemButtonW();
+    }
+
+    /** The first row shows the item and its anvil uses; enchantments follow. */
+    private int listTop() {
+        return top() + 4 + ROW_H + 4;
     }
 
     private int visibleRows() {
-        return Math.max(1, (height - FOOTER - LIST_TOP - 2) / ROW_H);
+        return Math.max(1, (bottom() - 2 - listTop()) / ROW_H);
     }
 
     private int maxRowScroll() {
         return Math.max(0, enchantments.size() - visibleRows());
     }
 
-    private void renderEditor(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
-        int x0 = MARGIN;
-        int x1 = leftEnd();
-        gfx.fill(6, TITLE_BAR + 4, width / 2 - 3, LIST_HEAD_Y - 4, COLOR_SURFACE);
-        gfx.item(target, x0, HEADER_Y - 2);
-        String usesLabel = "Anvil uses";
-        int usesLabelX = x1 - STEP_W - 4 - font.width(usesLabel);
-        String name = target.is(Items.ENCHANTED_BOOK) ? "Enchanted Book" : target.getHoverName().getString();
-        gfx.text(font, fit(name, usesLabelX - x0 - 24), x0 + 20, HEADER_Y + 2, COLOR_HEADING);
-        gfx.text(font, usesLabel, usesLabelX, HEADER_Y + 2, COLOR_DIM);
-        drawStepper(gfx, x1 - STEP_W, usesY(), String.valueOf(state.anvilUses),
-                state.anvilUses > 0 ? COLOR_WARN : COLOR_OFF, state.anvilUses > 0, state.anvilUses < MAX_USES,
-                mouseX, mouseY);
-        if (mouseY >= usesY() && mouseY < usesY() + 10 && mouseX >= usesLabelX && mouseX < x1) {
-            int penalty = (1 << state.anvilUses) - 1;
-            gfx.setTooltipForNextFrame(font, colored("Times this item went through an anvil before: ", COLOR_TEXT)
-                    .append(colored("+" + penalty + " levels", COLOR_WARN))
-                    .append(colored(" prior work on its next step", COLOR_TEXT)), mouseX, mouseY);
-        }
+    private int usesButtonX() {
+        return itemButtonX();
+    }
 
-        gfx.text(font, "Enchantment", x0, LIST_HEAD_Y, COLOR_DIM);
-        gfx.centeredText(font, "On item", onItemX() + STEP_W / 2, LIST_HEAD_Y, COLOR_DIM);
-        gfx.centeredText(font, "Book", bookX() + STEP_W / 2, LIST_HEAD_Y, COLOR_TEXT);
-        gfx.fill(x0, LIST_HEAD_Y + 10, x1, LIST_HEAD_Y + 12, COLOR_BORDER);
+    private int usesButtonW() {
+        return itemButtonW() + 4 + bookButtonW();
+    }
+
+    private void renderEditor(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        gfx.fill(leftX0(), top(), leftX1(), bottom(), LIST_BG);
+        gfx.fill(splitX() + 4, top(), contentX1(), bottom(), LIST_BG);
+
+        // Item row: icon, name, anvil uses.
+        int iy = top() + 4;
+        gfx.item(target, leftX0() + 6, iy + 2);
+        String name = target.is(Items.ENCHANTED_BOOK) ? "Enchanted Book" : target.getHoverName().getString();
+        gfx.text(font, fit(name, usesButtonX() - leftX0() - 32), leftX0() + 26, iy + 6, WHITE);
+        boolean usesHover = inside(mouseX, mouseY, usesButtonX(), iy, usesButtonW(), BUTTON_H);
+        fakeButton(gfx, usesButtonX(), iy, usesButtonW(),
+                Component.literal("Anvil uses: " + state.anvilUses), true, usesHover);
+        if (usesHover) {
+            int penalty = (1 << state.anvilUses) - 1;
+            gfx.setTooltipForNextFrame(font, List.of(
+                    colored("How often this item went through an anvil before", WHITE),
+                    colored("Adds " + penalty + " levels to its next step", GREY),
+                    colored("Click: more, right-click: less", DARK)), Optional.empty(), mouseX, mouseY);
+        }
+        gfx.fill(leftX0() + 4, listTop() - 3, leftX1() - 4, listTop() - 2, 0x30FFFFFF);
 
         if (enchantments.isEmpty()) {
-            gfx.text(font, "Nothing can enchant this", x0, LIST_TOP + 2, COLOR_DIM);
+            gfx.text(font, "Nothing can enchant this", leftX0() + 6, listTop() + 8, GREY);
         }
         rowScroll = Math.min(rowScroll, maxRowScroll());
         for (int i = 0; i < visibleRows(); i++) {
@@ -443,157 +480,219 @@ public final class PlannerScreen extends Screen {
             int have = state.onItem.getOrDefault(id, 0);
             int add = state.books.getOrDefault(id, 0);
             Holder<Enchantment> conflict = conflictFor(holder);
-            int y = LIST_TOP + i * ROW_H;
-            boolean rowHovered = mouseY >= y && mouseY < y + ROW_H && mouseX >= x0 && mouseX < x1;
-            if (index % 2 == 1) {
-                gfx.fill(x0 - 2, y - 1, x1 + 2, y + ROW_H - 1, COLOR_ZEBRA);
+            boolean locked = conflict != null && have == 0 && add == 0;
+            int y = listTop() + i * ROW_H;
+            boolean rowHover = inside(mouseX, mouseY, leftX0(), y, leftX1() - leftX0(), ROW_H);
+            if (rowHover) {
+                gfx.fill(leftX0(), y, leftX1(), y + ROW_H, ROW_HOVER);
             }
-            if (rowHovered) {
-                gfx.fill(x0 - 2, y - 1, x1 + 2, y + ROW_H - 1, COLOR_ROW_HOVER);
-            }
-            if (have > 0 || add > 0) {
-                gfx.fill(x0 - 3, y - 1, x0 - 1, y + ROW_H - 1, add > 0 ? COLOR_ACCENT : COLOR_OFF);
-            }
-            boolean blocked = conflict != null && have == 0 && add == 0;
-            int color = blocked ? COLOR_OFF : holder.is(EnchantmentTags.CURSE) ? COLOR_ACCENT : COLOR_TEXT;
             String label = holder.value().description().getString();
-            gfx.text(font, fit(label, onItemX() - x0 - 4), x0 + 1, y + 2, color);
-            drawStepper(gfx, onItemX(), y + 1, roman(have), levelColor(have, max, COLOR_TEXT), have > 0,
-                    have < max && (conflict == null || have > 0), mouseX, mouseY);
-            drawStepper(gfx, bookX(), y + 1, roman(add), levelColor(add, max, COLOR_ACCENT), add > 0,
-                    add < max && (conflict == null || add > 0), mouseX, mouseY);
-            if (rowHovered && mouseX < onItemX()) {
-                Component tip = conflict != null
-                        ? colored("Conflicts with ", COLOR_TEXT)
-                                .append(colored(conflict.value().description().getString(), COLOR_BAD))
-                        : colored("Max level ", COLOR_TEXT).append(colored(AnvilMath.roman(max), COLOR_GOOD));
-                gfx.setTooltipForNextFrame(font, tip, mouseX, mouseY);
+            int color = locked ? DARK : holder.is(EnchantmentTags.CURSE) ? CURSE : WHITE;
+            gfx.text(font, fit(label, itemButtonX() - leftX0() - 10), leftX0() + 6, y + 8, color);
+            int by = y + 2;
+            boolean itemHover = inside(mouseX, mouseY, itemButtonX(), by, itemButtonW(), BUTTON_H);
+            boolean bookHover = inside(mouseX, mouseY, bookButtonX(), by, bookButtonW(), BUTTON_H);
+            fakeButton(gfx, itemButtonX(), by, itemButtonW(), levelLabel("On item", have, max), !locked, itemHover);
+            fakeButton(gfx, bookButtonX(), by, bookButtonW(), levelLabel("Book", add, max), !locked, bookHover);
+            if (rowHover && mouseX < itemButtonX()) {
+                List<Component> tip = new ArrayList<>();
+                tip.add(colored(label, color == DARK ? WHITE : color));
+                tip.add(colored("Max level " + AnvilMath.roman(max), GREY));
+                if (conflict != null) {
+                    tip.add(colored("Can't go with " + conflict.value().description().getString(), TOO_EXPENSIVE));
+                }
+                gfx.setTooltipForNextFrame(font, tip, Optional.empty(), mouseX, mouseY);
+            } else if ((itemHover || bookHover) && !locked) {
+                gfx.setTooltipForNextFrame(font, List.of(
+                        colored(itemHover ? "Level the item already has" : "Book to add", WHITE),
+                        colored("Click: higher, right-click: lower", GREY),
+                        colored("Shift-click: max or off", GREY)), Optional.empty(), mouseX, mouseY);
             }
         }
-        drawScrollbar(gfx, x1 + 4, LIST_TOP, visibleRows() * ROW_H, rowScroll, maxRowScroll());
-        renderPlan(gfx);
+        scrollbar(gfx, leftX1() - 3, listTop(), visibleRows() * ROW_H, rowScroll, maxRowScroll());
+        renderPlan(gfx, mouseX, mouseY);
     }
 
-    /** Level text color: off at 0, green at max, {@code normal} in between. */
-    private static int levelColor(int level, int max, int normal) {
-        return level <= 0 ? COLOR_OFF : level >= max ? COLOR_GOOD : normal;
+    private static Component levelLabel(String what, int level, int max) {
+        String value = level <= 0 ? "-" : AnvilMath.roman(level);
+        MutableComponent text = Component.literal(what + ": ");
+        return text.append(Component.literal(value).withStyle(s -> s.withColor(TextColor.fromRgb(
+                level <= 0 ? 0xA0A0A0 : level >= max ? 0xFFFF55 : 0xFFFFFF))));
     }
 
-    private void renderPlan(GuiGraphicsExtractor gfx) {
-        int x0 = width / 2 + 7;
-        int x1 = width - MARGIN - 2;
-        int bottom = height - FOOTER - 2;
+    private static boolean inside(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    // ---------------------------------------------------------------- editor: plan
+
+    private int planX0() {
+        return splitX() + 10;
+    }
+
+    private int planX1() {
+        return contentX1() - 8;
+    }
+
+    private void renderPlan(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        int x0 = planX0();
+        int x1 = planX1();
         Plan current = plan();
-        gfx.fill(width / 2 + 3, TITLE_BAR + 4, width - 6, LIST_HEAD_Y - 4, COLOR_SURFACE);
-        gfx.text(font, "Cheapest order", x0, HEADER_Y + 2, COLOR_HEADING);
+        int y = top() + 10;
+        gfx.text(font, "Cheapest order", x0, y, WHITE);
+        if (!current.steps().isEmpty()) {
+            String count = current.steps().size() + (current.steps().size() == 1 ? " step" : " steps");
+            gfx.text(font, count, x1 - font.width(count), y, GREY);
+        }
+        gfx.text(font, fit("Left slot + right slot, top to bottom", x1 - x0), x0, y + 12, GREY);
+
+        int totalH = 46;
+        int stepsTop = top() + 36;
+        int stepsBottom = bottom() - totalH;
         if (current.steps().isEmpty()) {
             int mid = (x0 + x1) / 2;
-            int y = (LIST_TOP + bottom) / 2 - 12;
-            gfx.centeredText(font, "Nothing to combine yet", mid, y, COLOR_TEXT);
-            gfx.centeredText(font, fit("Set a level under \"Book\" to add it", x1 - x0), mid, y + 12, COLOR_DIM);
-            return;
+            int cy = (stepsTop + stepsBottom) / 2 - 10;
+            gfx.centeredText(font, "Nothing to combine yet", mid, cy, WHITE);
+            gfx.centeredText(font, fit("Set a Book level on the left", x1 - x0), mid, cy + 12, GREY);
+        } else {
+            int rows = Math.max(1, (stepsBottom - stepsTop) / ROW_H);
+            int maxScroll = Math.max(0, current.steps().size() - rows);
+            stepScroll = Math.min(stepScroll, maxScroll);
+            for (int i = 0; i < rows && i + stepScroll < current.steps().size(); i++) {
+                step(gfx, current.steps().get(i + stepScroll), x0, stepsTop + i * ROW_H, x1, mouseX, mouseY);
+            }
+            scrollbar(gfx, contentX1() - 3, stepsTop, rows * ROW_H, stepScroll, maxScroll);
         }
-        String count = current.steps().size() + (current.steps().size() == 1 ? " step" : " steps");
-        gfx.text(font, count, x1 - font.width(count), HEADER_Y + 2, COLOR_DIM);
-        gfx.text(font, fit("Left slot + right slot, top to bottom", x1 - x0), x0, LIST_HEAD_Y, COLOR_DIM);
-        gfx.fill(x0, LIST_HEAD_Y + 10, x1, LIST_HEAD_Y + 12, COLOR_BORDER);
+        renderTotal(gfx, current, x0, stepsBottom, x1);
+    }
 
+    /** One anvil operation: "1.", the two items as icons, what it adds, and the cost. */
+    private void step(GuiGraphicsExtractor gfx, Step step, int x0, int y, int x1, int mouseX, int mouseY) {
+        boolean hover = inside(mouseX, mouseY, splitX() + 4, y, contentX1() - splitX() - 4, ROW_H);
+        if (hover) {
+            gfx.fill(splitX() + 4, y, contentX1(), y + ROW_H, ROW_HOVER);
+        }
+        gfx.text(font, step.index() + ".", x0, y + 8, GREY);
+        int ix = x0 + 14;
+        icon(gfx, ix, y + 4, step.left());
+        gfx.text(font, "+", ix + 19, y + 8, GREY);
+        icon(gfx, ix + 27, y + 4, step.right());
+
+        String cost = step.levels() + (step.levels() == 1 ? " level" : " levels");
+        int costColor = costColor(step.levels(), step.tooExpensive());
+        int costX = x1 - font.width(cost);
+        gfx.text(font, cost, costX, y + 8, costColor);
+        int tx = ix + 48;
+        gfx.text(font, fit(describe(step), costX - tx - 6), tx, y + 8, WHITE);
+        if (hover) {
+            gfx.setTooltipForNextFrame(font, List.of(
+                    colored("Step " + step.index(), WHITE),
+                    colored("Left slot: " + slotName(step.left()), GREY),
+                    colored("Right slot: " + slotName(step.right()), GREY),
+                    colored("Costs " + step.levels() + " levels", costColor)), Optional.empty(), mouseX, mouseY);
+        }
+    }
+
+    /** The item, a book, or the result of an earlier step (with its number). */
+    private void icon(GuiGraphicsExtractor gfx, int x, int y, String label) {
+        boolean earlier = label.startsWith("#");
+        ItemStack stack;
+        if (earlier) {
+            stack = resultIsBook(label) ? new ItemStack(Items.ENCHANTED_BOOK) : target;
+        } else if (isTargetLabel(label)) {
+            stack = target.is(Items.ENCHANTED_BOOK) ? new ItemStack(Items.ENCHANTED_BOOK) : target;
+        } else {
+            stack = new ItemStack(Items.ENCHANTED_BOOK);
+        }
+        gfx.item(stack, x, y);
+        if (earlier) {
+            gfx.itemDecorations(font, stack, x, y, label);
+        }
+    }
+
+    /** Whether "#n" is the result of a step that only merged books (so it is a book, not the item). */
+    private boolean resultIsBook(String label) {
+        try {
+            int n = Integer.parseInt(label.substring(1));
+            for (Step step : plan().steps()) {
+                if (step.index() == n) {
+                    String left = step.left();
+                    if (left.startsWith("#")) {
+                        return resultIsBook(left);
+                    }
+                    return !isTargetLabel(left) || target.is(Items.ENCHANTED_BOOK);
+                }
+            }
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        return false;
+    }
+
+    private boolean isTargetLabel(String label) {
+        String name = target.is(Items.ENCHANTED_BOOK) ? "Book" : target.getHoverName().getString();
+        return label.equals(name);
+    }
+
+    private String slotName(String label) {
+        return label.startsWith("#") ? "the result of step " + label.substring(1) : label;
+    }
+
+    /** What a step does in words: the book it adds, the two books it merges, or an earlier result. */
+    private String describe(Step step) {
+        String left = step.left();
+        String right = step.right();
+        if (right.startsWith("#")) {
+            return "the result of step " + right.substring(1);
+        }
+        if (!left.startsWith("#") && !isTargetLabel(left)) {
+            return left + " + " + right;
+        }
+        return right;
+    }
+
+    private static int costColor(int levels, boolean tooExpensive) {
+        boolean limited = !AnvilCostCalculatorMod.liftsLevelLimit();
+        return tooExpensive || limited && levels >= AnvilMath.TOO_EXPENSIVE ? TOO_EXPENSIVE : COST;
+    }
+
+    /** Total levels, your levels, and what the item ends up with. */
+    private void renderTotal(GuiGraphicsExtractor gfx, Plan current, int x0, int y, int x1) {
         LocalPlayer player = minecraft.player;
         boolean survival = player != null && !player.hasInfiniteMaterials();
-        List<Footer> notes = new ArrayList<>();
-        if (survival) {
-            String have = "You have " + player.experienceLevel + " levels";
-            if (readFlag(() -> AnvilCostCalculatorMod.showXpPoints.get())) {
-                have += String.format(Locale.ROOT, " · ≈ %,d XP",
-                        AnvilMath.pointsToSpend(player.experienceLevel, current.totalLevels()));
-            }
-            notes.add(new Footer(have, COLOR_DIM));
-        }
+        int total = current.totalLevels();
+        gfx.fill(splitX() + 8, y, contentX1() - 4, y + 1, 0x30FFFFFF);
+        int ty = y + 6;
+        gfx.text(font, "Total", x0, ty, WHITE);
+        String totalText = total + (total == 1 ? " level" : " levels");
+        boolean affordable = !survival || total <= player.experienceLevel;
+        int color = current.steps().isEmpty() ? GREY
+                : current.tooExpensive() || !affordable ? TOO_EXPENSIVE : COST;
+        gfx.text(font, totalText, x1 - font.width(totalText), ty, color);
+
+        String note;
         if (current.tooExpensive()) {
-            notes.add(new Footer("Too Expensive! No order stays under 40", COLOR_BAD));
+            note = "Too Expensive! No order stays under 40";
+        } else if (survival) {
+            note = "You have " + player.experienceLevel + " levels";
+            if (readFlag(() -> AnvilCostCalculatorMod.showXpPoints.get()) && total > 0) {
+                note += String.format(Locale.ROOT, " (about %,d XP)",
+                        AnvilMath.pointsToSpend(player.experienceLevel, total));
+            }
+        } else {
+            note = "Creative mode: levels are free";
         }
         if (state.books.size() > AnvilMath.EXACT_SEARCH_LIMIT) {
-            notes.add(new Footer("Quick plan (over " + AnvilMath.EXACT_SEARCH_LIMIT + " books)", COLOR_DIM));
+            note += ", quick plan";
         }
-        List<FormattedCharSequence> result = font.split(colored("Result: ", COLOR_DIM)
-                .append(colored(resultText(current), COLOR_TEXT)), x1 - x0);
-
-        int footerHeight = 6 + 14 + (notes.size() + result.size()) * ROW_H;
-        int stepRows = Math.max(1, (bottom - LIST_TOP - footerHeight) / ROW_H);
-        int maxScroll = Math.max(0, current.steps().size() - stepRows);
-        stepScroll = Math.min(stepScroll, maxScroll);
-        int y = LIST_TOP;
-        for (int i = 0; i < stepRows && i + stepScroll < current.steps().size(); i++) {
-            Step step = current.steps().get(i + stepScroll);
-            if ((i + stepScroll) % 2 == 1) {
-                gfx.fill(x0 - 2, y - 1, x1 + 2, y + ROW_H - 1, COLOR_ZEBRA);
-            }
-            String number = String.valueOf(step.index());
-            int badge = Math.max(10, font.width(number) + 4);
-            gfx.fill(x0, y, x0 + badge, y + 10, COLOR_ACCENT_DARK);
-            gfx.centeredText(font, number, x0 + badge / 2 + 1, y + 1, COLOR_HEADING);
-            int chipWidth = chip(gfx, x1, y, step.levels() + " lv", step.levels(), step.tooExpensive());
-            int textX = x0 + badge + 4;
-            gfx.text(font, stepLine(step, x1 - chipWidth - 6 - textX), textX, y + 1, COLOR_TEXT);
-            y += ROW_H;
+        gfx.text(font, fit(note, x1 - x0), x0, ty + 12, current.tooExpensive() ? TOO_EXPENSIVE : GREY);
+        if (!current.steps().isEmpty()) {
+            gfx.text(font, fit("Result: " + resultText(current), x1 - x0), x0, ty + 24, GREY);
         }
-        drawScrollbar(gfx, x1 + 4, LIST_TOP, stepRows * ROW_H, stepScroll, maxScroll);
-
-        y = LIST_TOP + stepRows * ROW_H + 4;
-        gfx.fill(x0 - 2, y, x1 + 2, y + 14, COLOR_SURFACE);
-        gfx.fill(x0 - 2, y, x0 + 1, y + 14, COLOR_ACCENT);
-        gfx.text(font, "Total", x0 + 5, y + 3, COLOR_HEADING);
-        String total = current.totalLevels() + " levels";
-        boolean affordable = !survival || current.totalLevels() <= player.experienceLevel;
-        gfx.text(font, total, x1 - font.width(total) - 2, y + 3,
-                current.tooExpensive() ? COLOR_BAD : affordable ? COLOR_GOOD : COLOR_WARN);
-        y += 18;
-        for (Footer note : notes) {
-            gfx.text(font, fit(note.text(), x1 - x0), x0, y, note.color());
-            y += ROW_H;
-        }
-        for (FormattedCharSequence line : result) {
-            if (y + font.lineHeight > bottom) {
-                break;
-            }
-            gfx.text(font, line, x0, y, COLOR_TEXT);
-            y += ROW_H;
-        }
-    }
-
-    /** "A + B" with the operands in white/violet and a dim plus, cut to {@code room} pixels. */
-    private Component stepLine(Step step, int room) {
-        String plain = step.left() + " + " + step.right();
-        if (font.width(plain) > room) {
-            return colored(fit(plain, room), COLOR_TEXT);
-        }
-        return colored(step.left(), step.left().startsWith("#") ? COLOR_ACCENT : COLOR_TEXT)
-                .append(colored(" + ", COLOR_DIM))
-                .append(colored(step.right(), step.right().startsWith("#") ? COLOR_ACCENT : COLOR_TEXT));
-    }
-
-    /** Right-aligned cost pill ending at {@code x1}, colored by price; returns its width. */
-    private int chip(GuiGraphicsExtractor gfx, int x1, int y, String text, int levels, boolean tooExpensive) {
-        int textColor;
-        int fill;
-        if (tooExpensive || levels >= AnvilMath.TOO_EXPENSIVE && !AnvilCostCalculatorMod.liftsLevelLimit()) {
-            textColor = COLOR_BAD;
-            fill = COLOR_CHIP_BAD;
-        } else {
-            textColor = levels <= CHEAP_LEVELS ? COLOR_GOOD : COLOR_WARN;
-            fill = COLOR_SURFACE;
-        }
-        int width = font.width(text) + 6;
-        gfx.fill(x1 - width, y, x1, y + 10, fill);
-        gfx.text(font, text, x1 - width + 3, y + 1, textColor);
-        return width;
-    }
-
-    private record Footer(String text, int color) {
     }
 
     private static MutableComponent colored(String text, int argb) {
-        return MycelTheme.colored(text, argb);
+        return Component.literal(text).withStyle(s -> s.withColor(TextColor.fromRgb(argb & 0xFFFFFF)));
     }
 
     private String resultText(Plan current) {
@@ -607,45 +706,26 @@ public final class PlannerScreen extends Screen {
         return String.join(", ", parts);
     }
 
-    private void drawStepper(GuiGraphicsExtractor gfx, int x, int y, String value, int valueColor, boolean canDown,
-            boolean canUp, int mouseX, int mouseY) {
-        drawBox(gfx, x, y, "-", canDown, mouseX, mouseY);
-        gfx.fill(x + STEP_BOX, y, x + STEP_BOX + STEP_VALUE, y + 10, COLOR_BG);
-        gfx.centeredText(font, value, x + STEP_BOX + STEP_VALUE / 2, y + 1, valueColor);
-        drawBox(gfx, x + STEP_BOX + STEP_VALUE, y, "+", canUp, mouseX, mouseY);
-    }
-
-    private void drawBox(GuiGraphicsExtractor gfx, int x, int y, String sign, boolean enabled, int mouseX,
-            int mouseY) {
-        boolean hovered = enabled && mouseX >= x && mouseX < x + STEP_BOX && mouseY >= y && mouseY < y + 10;
-        gfx.fill(x, y, x + STEP_BOX, y + 10, hovered ? COLOR_ACCENT_DARK : COLOR_BORDER);
-        gfx.fill(x + 1, y + 1, x + STEP_BOX - 1, y + 9, hovered ? COLOR_ACCENT_DARK : COLOR_SURFACE);
-        gfx.centeredText(font, sign, x + STEP_BOX / 2 + 1, y + 1,
-                !enabled ? COLOR_OFF : hovered ? COLOR_HEADING : COLOR_DIM);
-    }
-
-    private void drawScrollbar(GuiGraphicsExtractor gfx, int x, int top, int height, int scroll, int maxScroll) {
+    /** The thin vanilla list scrollbar. */
+    private static void scrollbar(GuiGraphicsExtractor gfx, int x, int top, int height, int scroll, int maxScroll) {
         if (maxScroll <= 0) {
             return;
         }
-        int thumb = Math.max(8, height / (maxScroll + 1));
+        int thumb = Math.max(12, height / (maxScroll + 1));
         int y = top + (height - thumb) * scroll / maxScroll;
-        gfx.fill(x, top, x + 2, top + height, COLOR_SURFACE);
-        gfx.fill(x, y, x + 2, y + thumb, COLOR_OFF);
+        gfx.fill(x, top, x + 3, top + height, 0x80000000);
+        gfx.fill(x, y, x + 3, y + thumb, 0xFF808080);
+        gfx.fill(x, y, x + 2, y + thumb - 1, 0xFFC0C0C0);
     }
 
     private String fit(String text, int maxWidth) {
         if (font.width(text) <= maxWidth) {
             return text;
         }
-        return font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width("…"))) + "…";
+        return font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width("..."))) + "...";
     }
 
-    private static String roman(int level) {
-        return level <= 0 ? "·" : AnvilMath.roman(level);
-    }
-
-    // ----------------------------------------------------------------- input
+    // ---------------------------------------------------------------- input
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
@@ -654,90 +734,74 @@ public final class PlannerScreen extends Screen {
                 String.format(Locale.ROOT, "%.1f", event.y()), event.hasShiftDown(),
                 picking ? "picker" : "editor", width, height);
         if (super.mouseClicked(event, doubleClick)) {
-            AnvilCostCalculatorMod.debug("  -> handled by widget {}", getFocused());
             return true;
         }
         // 26.x mouse input is SDL-based: left is 1 there, not GLFW's 0.
-        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
-            AnvilCostCalculatorMod.debug("  -> ignored: not the left button ({})", InputConstants.MOUSE_BUTTON_LEFT);
+        boolean left = event.button() == InputConstants.MOUSE_BUTTON_LEFT;
+        boolean right = event.button() == InputConstants.MOUSE_BUTTON_RIGHT;
+        if (!left && !right) {
             return false;
         }
         double mx = event.x();
         double my = event.y();
         if (picking) {
-            int index = itemAt(mx, my);
+            int index = left ? itemAt(mx, my) : -1;
             if (index < 0) {
-                AnvilCostCalculatorMod.debug("  -> no item cell (grid left {}, top {}, {} cols x {} rows, scroll {}, {} items)",
-                        gridLeft(), GRID_TOP, columns(), gridRows(), pickScroll, filtered.size());
                 return false;
             }
-            AnvilCostCalculatorMod.debug("  -> picked cell {}: {}", index, filtered.get(index).getItem());
+            click();
             state.pick(filtered.get(index).getItem());
             loadItem();
             showPage(false);
             return true;
         }
+        int step = left ? 1 : -1;
         boolean jump = event.hasShiftDown();
-        int usesStep = stepperHit(leftEnd() - STEP_W, usesY(), mx, my);
-        if (usesStep != 0) {
-            int next = jump ? (usesStep > 0 ? MAX_USES : 0) : state.anvilUses + usesStep;
-            state.anvilUses = Math.max(0, Math.min(MAX_USES, next));
+        if (inside(mx, my, usesButtonX(), top() + 4, usesButtonW(), BUTTON_H)) {
+            state.anvilUses = jump ? (left ? MAX_USES : 0) : (state.anvilUses + step + MAX_USES + 1) % (MAX_USES + 1);
             AnvilCostCalculatorMod.debug("  -> anvil uses now {}", state.anvilUses);
+            click();
             dirty = true;
             return true;
         }
-        if (my < LIST_TOP || mx < MARGIN || mx >= leftEnd()) {
-            AnvilCostCalculatorMod.debug("  -> outside the enchantment list");
+        if (my < listTop() || mx < leftX0() || mx >= leftX1()) {
             return false;
         }
-        int index = (int) ((my - LIST_TOP) / ROW_H) + rowScroll;
-        if (index >= enchantments.size() || (my - LIST_TOP) / ROW_H >= visibleRows()) {
-            AnvilCostCalculatorMod.debug("  -> below the last row (row {}, {} rows)", index, enchantments.size());
+        int row = (int) ((my - listTop()) / ROW_H);
+        int index = row + rowScroll;
+        if (row >= visibleRows() || index >= enchantments.size()) {
             return false;
         }
         Holder<Enchantment> holder = enchantments.get(index);
-        int y = LIST_TOP + (index - rowScroll) * ROW_H + 1;
-        int onItem = stepperHit(onItemX(), y, mx, my);
-        if (onItem != 0) {
-            return adjust(state.onItem, holder, onItem, jump);
+        int by = listTop() + row * ROW_H + 2;
+        if (inside(mx, my, itemButtonX(), by, itemButtonW(), BUTTON_H)) {
+            return cycle(state.onItem, holder, step, jump);
         }
-        int book = stepperHit(bookX(), y, mx, my);
-        if (book != 0) {
-            return adjust(state.books, holder, book, jump);
+        if (inside(mx, my, bookButtonX(), by, bookButtonW(), BUTTON_H)) {
+            return cycle(state.books, holder, step, jump);
         }
-        AnvilCostCalculatorMod.debug("  -> row {} ({}) but not on a +/- box (on item x {}, book x {})",
-                index, PlannerRules.id(holder), onItemX(), bookX());
         return false;
     }
 
-    /** -1 on a stepper's minus box, +1 on its plus box, 0 elsewhere. */
-    static int stepperHit(int x, int y, double mx, double my) {
-        if (my < y || my >= y + 10) {
-            return 0;
-        }
-        if (mx >= x && mx < x + STEP_BOX) {
-            return -1;
-        }
-        int plusX = x + STEP_BOX + STEP_VALUE;
-        return mx >= plusX && mx < plusX + STEP_BOX ? 1 : 0;
-    }
-
-    private boolean adjust(Map<String, Integer> levels, Holder<Enchantment> holder, int delta, boolean jump) {
+    /** Click: one level up (wrapping to off after max). Right-click: one down. Shift: max or off. */
+    private boolean cycle(Map<String, Integer> levels, Holder<Enchantment> holder, int step, boolean jump) {
         String id = PlannerRules.id(holder);
         int current = levels.getOrDefault(id, 0);
-        if (delta > 0 && current == 0 && conflictFor(holder) != null) {
-            AnvilCostCalculatorMod.debug("  -> {} locked: conflicts with {}", id,
-                    PlannerRules.id(conflictFor(holder)));
+        if (current == 0 && conflictFor(holder) != null) {
+            AnvilCostCalculatorMod.debug("  -> {} locked: conflicts with {}", id, PlannerRules.id(conflictFor(holder)));
             return true;
         }
         int max = holder.value().getMaxLevel();
-        int next = jump ? (delta > 0 ? max : 0) : current + delta;
-        PlannerState.setLevel(levels, id, Math.max(0, Math.min(max, next)));
-        AnvilCostCalculatorMod.debug("  -> {} {} {} -> {} (on item {}, books {})",
-                levels == state.books ? "book" : "on item", id, current, levels.getOrDefault(id, 0),
-                state.onItem, state.books);
+        int next = jump ? (current > 0 ? 0 : max) : (current + step + max + 1) % (max + 1);
+        PlannerState.setLevel(levels, id, next);
+        AnvilCostCalculatorMod.debug("  -> {} {} {} -> {}", levels == state.books ? "book" : "on item", id, current, next);
+        click();
         dirty = true;
         return true;
+    }
+
+    private void click() {
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
     }
 
     /** The first chosen enchantment (on the item or as a book) this one cannot coexist with. */
@@ -764,7 +828,7 @@ public final class PlannerScreen extends Screen {
         int delta = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
         if (picking) {
             pickScroll = Math.max(0, Math.min(maxPickScroll(), pickScroll + delta));
-        } else if (x < width / 2.0) {
+        } else if (x < splitX()) {
             rowScroll = Math.max(0, Math.min(maxRowScroll(), rowScroll + delta));
         } else {
             stepScroll = Math.max(0, stepScroll + delta);
@@ -779,13 +843,14 @@ public final class PlannerScreen extends Screen {
         if (state.item == null || state.books.isEmpty()) {
             return;
         }
-        net.minecraft.resources.Identifier key = BuiltInRegistries.ITEM.getKey(state.item);
+        Identifier key = BuiltInRegistries.ITEM.getKey(state.item);
         AnvilStats.count("planned_items", "minecraft".equals(key.getNamespace()) ? key.getPath() : key.toString());
         if (target.is(Items.ENCHANTED_BOOK)) {
             AnvilStats.count("book_mode");
         }
         for (String enchantment : state.books.keySet()) {
-            AnvilStats.count("planned_enchantments", enchantment.startsWith("minecraft:") ? enchantment.substring(10) : enchantment);
+            AnvilStats.count("planned_enchantments",
+                    enchantment.startsWith("minecraft:") ? enchantment.substring(10) : enchantment);
         }
         Plan current = plan();
         AnvilStats.count("plan_levels", AnvilStats.levelRange(current.totalLevels()));
@@ -820,9 +885,8 @@ public final class PlannerScreen extends Screen {
                 label, books.size(), item.repairCost(), survival, plan.steps().size(), plan.totalLevels(),
                 plan.tooExpensive() ? ", TOO EXPENSIVE" : "",
                 String.format(Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1e6));
-        for (Step step : plan.steps()) {
-            AnvilCostCalculatorMod.debug("  {}. {} + {} = {} lv", step.index(), step.left(), step.right(),
-                    step.levels());
+        for (Step s : plan.steps()) {
+            AnvilCostCalculatorMod.debug("  {}. {} + {} = {} lv", s.index(), s.left(), s.right(), s.levels());
         }
         return plan;
     }

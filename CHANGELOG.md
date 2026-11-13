@@ -6,6 +6,12 @@ Anvil Cost Calculator is versioned semantically (`MAJOR.MINOR.PATCH`).
 It runs on Minecraft 26.3, 26.2 and 26.1 (Fabric + Forge + NeoForge, Java 25) and requires
 [Mycel](https://github.com/MyCelium-GG/MyCel-Lib) (`my.celium.org`).
 
+## [Unreleased]
+
+### Changed
+- The planner is redone as a normal Minecraft menu: a centred title, dark lists and vanilla buttons. Each enchantment has an "On item" and a "Book" button: click for the next level, right-click for the previous one, shift-click for max or off.
+- The cheapest order shows each anvil step with the real item and book icons (left slot + right slot) and its cost in the anvil's own green, or red when it is Too Expensive.
+
 ## [1.2.2] - 2026-11-04
 
 ### Changed
