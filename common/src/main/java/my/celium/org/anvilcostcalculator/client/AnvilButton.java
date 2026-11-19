@@ -44,7 +44,7 @@ public final class AnvilButton {
                                 MycelScreens.open(new PlannerScreen(anvil));
                             })
                     .bounds(left + imageWidth - WIDTH - INSET, top + INSET, WIDTH, HEIGHT)
-                    .tooltip(Tooltip.create(Component.literal("Anvil Cost Calculator: plan the cheapest enchant order")))
+                    .tooltip(Tooltip.create(Component.literal("Anvil Cost Calculator: " + PlannerScreen.tr("button.tip"))))
                     .build();
         } catch (RuntimeException | ReflectiveOperationException e) {
             AnvilCostCalculatorMod.debug("Anvil button not added: {}", e.toString());

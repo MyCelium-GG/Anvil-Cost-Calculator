@@ -41,11 +41,11 @@ public final class TooltipLines {
         }
         boolean maxed = repairCost >= AnvilMath.TOO_EXPENSIVE - 1 && !AnvilCostCalculatorMod.liftsLevelLimit();
         int value = maxed ? COLOR_MAXED : COLOR_VALUE;
-        MutableComponent line = colored("Anvil uses: ", COLOR_LABEL)
+        MutableComponent line = colored(PlannerScreen.tr("tooltip.uses") + " ", COLOR_LABEL)
                 .append(colored(String.valueOf(AnvilMath.anvilUses(repairCost)), value))
-                .append(colored(" · Prior work ", COLOR_LABEL))
-                .append(colored("+" + repairCost + " lv", value));
-        return maxed ? line.append(colored(" (maxed)", COLOR_MAXED)) : line;
+                .append(colored(" · " + PlannerScreen.tr("tooltip.prior_work") + " ", COLOR_LABEL))
+                .append(colored(PlannerScreen.tr("tooltip.lv", repairCost), value));
+        return maxed ? line.append(colored(" (" + PlannerScreen.tr("tooltip.maxed") + ")", COLOR_MAXED)) : line;
     }
 
     private static MutableComponent colored(String text, int rgb) {

@@ -212,8 +212,8 @@ public final class PlannerScreen extends Screen {
     protected void init() {
         int by = height - FOOTER + 7;
         if (picking) {
-            search = new EditBox(font, width / 2 - 100, 24, 200, 16, Component.literal("Search"));
-            search.setHint(Component.literal("Search items"));
+            search = new EditBox(font, width / 2 - 100, 24, 200, 16, Component.literal(tr("search")));
+            search.setHint(Component.literal(tr("search.hint")));
             search.setValue(state.search);
             search.setResponder(text -> {
                 state.search = text;
@@ -221,19 +221,19 @@ public final class PlannerScreen extends Screen {
             });
             addRenderableWidget(search);
             if (state.item != null) {
-                button(width / 2 - 154, by, 150, "Back to planner", () -> showPage(false));
-                button(width / 2 + 4, by, 150, "Back to anvil", this::onClose);
+                button(width / 2 - 154, by, 150, tr("button.back_planner"), () -> showPage(false));
+                button(width / 2 + 4, by, 150, tr("button.back_anvil"), this::onClose);
             } else {
-                button(width / 2 - 75, by, 150, "Back to anvil", this::onClose);
+                button(width / 2 - 75, by, 150, tr("button.back_anvil"), this::onClose);
             }
         } else {
             search = null;
-            button(width / 2 - 155, by, 100, "Change item", () -> showPage(true));
-            button(width / 2 - 50, by, 100, "Clear books", () -> {
+            button(width / 2 - 155, by, 100, tr("button.change_item"), () -> showPage(true));
+            button(width / 2 - 50, by, 100, tr("button.clear_books"), () -> {
                 state.books.clear();
                 dirty = true;
             });
-            button(width / 2 + 55, by, 100, "Back to anvil", this::onClose);
+            button(width / 2 + 55, by, 100, tr("button.back_anvil"), this::onClose);
         }
     }
 
@@ -354,7 +354,7 @@ public final class PlannerScreen extends Screen {
     private void renderPicker(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
         gfx.fill(0, top(), width, bottom(), LIST_BG);
         if (filtered.isEmpty()) {
-            gfx.centeredText(font, "Nothing enchantable matches", width / 2, gridY0() + 20, GREY);
+            gfx.centeredText(font, tr("picker.none"), width / 2, gridY0() + 20, GREY);
             return;
         }
         pickScroll = Math.min(pickScroll, maxPickScroll());
@@ -380,7 +380,7 @@ public final class PlannerScreen extends Screen {
         if (hovered >= 0) {
             ItemStack stack = filtered.get(hovered);
             Component name = stack.is(Items.ENCHANTED_BOOK)
-                    ? colored("Enchanted Book", WHITE).append(colored("  (combine books only)", GREY))
+                    ? colored(enchantedBook(), WHITE).append(colored("  (" + tr("picker.books_only") + ")", GREY))
                     : colored(stack.getHoverName().getString(), WHITE);
             gfx.setTooltipForNextFrame(font, name, mouseX, mouseY);
         }
@@ -451,22 +451,22 @@ public final class PlannerScreen extends Screen {
         // Item row: icon, name, anvil uses.
         int iy = top() + 4;
         gfx.item(target, leftX0() + 6, iy + 2);
-        String name = target.is(Items.ENCHANTED_BOOK) ? "Enchanted Book" : target.getHoverName().getString();
+        String name = target.is(Items.ENCHANTED_BOOK) ? enchantedBook() : target.getHoverName().getString();
         gfx.text(font, fit(name, usesButtonX() - leftX0() - 32), leftX0() + 26, iy + 6, WHITE);
         boolean usesHover = inside(mouseX, mouseY, usesButtonX(), iy, usesButtonW(), BUTTON_H);
         fakeButton(gfx, usesButtonX(), iy, usesButtonW(),
-                Component.literal("Anvil uses: " + state.anvilUses), true, usesHover);
+                Component.literal(tr("uses", state.anvilUses)), true, usesHover);
         if (usesHover) {
             int penalty = (1 << state.anvilUses) - 1;
             gfx.setTooltipForNextFrame(font, List.of(
-                    colored("How often this item went through an anvil before", WHITE),
-                    colored("Adds " + penalty + " levels to its next step", GREY),
-                    colored("Click: more, right-click: less", DARK)), Optional.empty(), mouseX, mouseY);
+                    colored(tr("uses.tip"), WHITE),
+                    colored(tr("uses.penalty", penalty), GREY),
+                    colored(tr("uses.click"), DARK)), Optional.empty(), mouseX, mouseY);
         }
         gfx.fill(leftX0() + 4, listTop() - 3, leftX1() - 4, listTop() - 2, 0x30FFFFFF);
 
         if (enchantments.isEmpty()) {
-            gfx.text(font, "Nothing can enchant this", leftX0() + 6, listTop() + 8, GREY);
+            gfx.text(font, tr("list.none"), leftX0() + 6, listTop() + 8, GREY);
         }
         rowScroll = Math.min(rowScroll, maxRowScroll());
         for (int i = 0; i < visibleRows(); i++) {
@@ -492,21 +492,21 @@ public final class PlannerScreen extends Screen {
             int by = y + 2;
             boolean itemHover = inside(mouseX, mouseY, itemButtonX(), by, itemButtonW(), BUTTON_H);
             boolean bookHover = inside(mouseX, mouseY, bookButtonX(), by, bookButtonW(), BUTTON_H);
-            fakeButton(gfx, itemButtonX(), by, itemButtonW(), levelLabel("On item", have, max), !locked, itemHover);
-            fakeButton(gfx, bookButtonX(), by, bookButtonW(), levelLabel("Book", add, max), !locked, bookHover);
+            fakeButton(gfx, itemButtonX(), by, itemButtonW(), levelLabel(tr("level.on_item"), have, max), !locked, itemHover);
+            fakeButton(gfx, bookButtonX(), by, bookButtonW(), levelLabel(tr("book"), add, max), !locked, bookHover);
             if (rowHover && mouseX < itemButtonX()) {
                 List<Component> tip = new ArrayList<>();
                 tip.add(colored(label, color == DARK ? WHITE : color));
-                tip.add(colored("Max level " + AnvilMath.roman(max), GREY));
+                tip.add(colored(tr("level.max", AnvilMath.roman(max)), GREY));
                 if (conflict != null) {
-                    tip.add(colored("Can't go with " + conflict.value().description().getString(), TOO_EXPENSIVE));
+                    tip.add(colored(tr("level.conflict", conflict.value().description().getString()), TOO_EXPENSIVE));
                 }
                 gfx.setTooltipForNextFrame(font, tip, Optional.empty(), mouseX, mouseY);
             } else if ((itemHover || bookHover) && !locked) {
                 gfx.setTooltipForNextFrame(font, List.of(
-                        colored(itemHover ? "Level the item already has" : "Book to add", WHITE),
-                        colored("Click: higher, right-click: lower", GREY),
-                        colored("Shift-click: max or off", GREY)), Optional.empty(), mouseX, mouseY);
+                        colored(tr(itemHover ? "level.on_item.tip" : "level.book.tip"), WHITE),
+                        colored(tr("level.click"), GREY),
+                        colored(tr("level.shift"), GREY)), Optional.empty(), mouseX, mouseY);
             }
         }
         scrollbar(gfx, leftX1() - 3, listTop(), visibleRows() * ROW_H, rowScroll, maxRowScroll());
@@ -539,12 +539,12 @@ public final class PlannerScreen extends Screen {
         int x1 = planX1();
         Plan current = plan();
         int y = top() + 10;
-        gfx.text(font, "Cheapest order", x0, y, WHITE);
+        gfx.text(font, tr("plan.title"), x0, y, WHITE);
         if (!current.steps().isEmpty()) {
-            String count = current.steps().size() + (current.steps().size() == 1 ? " step" : " steps");
+            String count = tr(current.steps().size() == 1 ? "plan.steps.one" : "plan.steps", current.steps().size());
             gfx.text(font, count, x1 - font.width(count), y, GREY);
         }
-        gfx.text(font, fit("Left slot + right slot, top to bottom", x1 - x0), x0, y + 12, GREY);
+        gfx.text(font, fit(tr("plan.how"), x1 - x0), x0, y + 12, GREY);
 
         int totalH = 46;
         int stepsTop = top() + 36;
@@ -552,8 +552,8 @@ public final class PlannerScreen extends Screen {
         if (current.steps().isEmpty()) {
             int mid = (x0 + x1) / 2;
             int cy = (stepsTop + stepsBottom) / 2 - 10;
-            gfx.centeredText(font, "Nothing to combine yet", mid, cy, WHITE);
-            gfx.centeredText(font, fit("Set a Book level on the left", x1 - x0), mid, cy + 12, GREY);
+            gfx.centeredText(font, tr("plan.empty"), mid, cy, WHITE);
+            gfx.centeredText(font, fit(tr("plan.empty.hint"), x1 - x0), mid, cy + 12, GREY);
         } else {
             int rows = Math.max(1, (stepsBottom - stepsTop) / ROW_H);
             int maxScroll = Math.max(0, current.steps().size() - rows);
@@ -578,7 +578,7 @@ public final class PlannerScreen extends Screen {
         gfx.text(font, "+", ix + 19, y + 8, GREY);
         icon(gfx, ix + 27, y + 4, step.right());
 
-        String cost = step.levels() + (step.levels() == 1 ? " level" : " levels");
+        String cost = levels(step.levels());
         int costColor = costColor(step.levels(), step.tooExpensive());
         int costX = x1 - font.width(cost);
         gfx.text(font, cost, costX, y + 8, costColor);
@@ -586,10 +586,10 @@ public final class PlannerScreen extends Screen {
         gfx.text(font, fit(describe(step), costX - tx - 6), tx, y + 8, WHITE);
         if (hover) {
             gfx.setTooltipForNextFrame(font, List.of(
-                    colored("Step " + step.index(), WHITE),
-                    colored("Left slot: " + slotName(step.left()), GREY),
-                    colored("Right slot: " + slotName(step.right()), GREY),
-                    colored("Costs " + step.levels() + " levels", costColor)), Optional.empty(), mouseX, mouseY);
+                    colored(tr("step", step.index()), WHITE),
+                    colored(tr("step.left", slotName(step.left())), GREY),
+                    colored(tr("step.right", slotName(step.right())), GREY),
+                    colored(tr("step.costs", levels(step.levels())), costColor)), Optional.empty(), mouseX, mouseY);
         }
     }
 
@@ -630,12 +630,12 @@ public final class PlannerScreen extends Screen {
     }
 
     private boolean isTargetLabel(String label) {
-        String name = target.is(Items.ENCHANTED_BOOK) ? "Book" : target.getHoverName().getString();
+        String name = target.is(Items.ENCHANTED_BOOK) ? tr("book") : target.getHoverName().getString();
         return label.equals(name);
     }
 
     private String slotName(String label) {
-        return label.startsWith("#") ? "the result of step " + label.substring(1) : label;
+        return label.startsWith("#") ? tr("step.result_of", label.substring(1)) : label;
     }
 
     /** What a step does in words: the book it adds, the two books it merges, or an earlier result. */
@@ -643,7 +643,7 @@ public final class PlannerScreen extends Screen {
         String left = step.left();
         String right = step.right();
         if (right.startsWith("#")) {
-            return "the result of step " + right.substring(1);
+            return tr("step.result_of", right.substring(1));
         }
         if (!left.startsWith("#") && !isTargetLabel(left)) {
             return left + " + " + right;
@@ -663,8 +663,8 @@ public final class PlannerScreen extends Screen {
         int total = current.totalLevels();
         gfx.fill(splitX() + 8, y, contentX1() - 4, y + 1, 0x30FFFFFF);
         int ty = y + 6;
-        gfx.text(font, "Total", x0, ty, WHITE);
-        String totalText = total + (total == 1 ? " level" : " levels");
+        gfx.text(font, tr("total"), x0, ty, WHITE);
+        String totalText = levels(total);
         boolean affordable = !survival || total <= player.experienceLevel;
         int color = current.steps().isEmpty() ? GREY
                 : current.tooExpensive() || !affordable ? TOO_EXPENSIVE : COST;
@@ -672,22 +672,22 @@ public final class PlannerScreen extends Screen {
 
         String note;
         if (current.tooExpensive()) {
-            note = "Too Expensive! No order stays under 40";
+            note = tr("total.too_expensive");
         } else if (survival) {
-            note = "You have " + player.experienceLevel + " levels";
+            note = tr("total.you_have", player.experienceLevel);
             if (readFlag(() -> AnvilCostCalculatorMod.showXpPoints.get()) && total > 0) {
-                note += String.format(Locale.ROOT, " (about %,d XP)",
-                        AnvilMath.pointsToSpend(player.experienceLevel, total));
+                note += " " + tr("total.xp", String.format(Locale.ROOT, "%,d",
+                        AnvilMath.pointsToSpend(player.experienceLevel, total)));
             }
         } else {
-            note = "Creative mode: levels are free";
+            note = tr("total.creative");
         }
         if (state.books.size() > AnvilMath.EXACT_SEARCH_LIMIT) {
-            note += ", quick plan";
+            note += ", " + tr("total.quick");
         }
         gfx.text(font, fit(note, x1 - x0), x0, ty + 12, current.tooExpensive() ? TOO_EXPENSIVE : GREY);
         if (!current.steps().isEmpty()) {
-            gfx.text(font, fit("Result: " + resultText(current), x1 - x0), x0, ty + 24, GREY);
+            gfx.text(font, fit(tr("total.result", resultText(current)), x1 - x0), x0, ty + 24, GREY);
         }
     }
 
@@ -866,7 +866,7 @@ public final class PlannerScreen extends Screen {
             return plan;
         }
         boolean book = target.is(Items.ENCHANTED_BOOK);
-        String label = book ? "Book" : target.getHoverName().getString();
+        String label = book ? tr("book") : target.getHoverName().getString();
         Piece item = new Piece(label, state.onItem, (1 << state.anvilUses) - 1, book);
         List<Piece> books = new ArrayList<>();
         for (Holder<Enchantment> holder : enchantments) {
@@ -897,5 +897,18 @@ public final class PlannerScreen extends Screen {
         } catch (RuntimeException e) {
             return true;
         }
+    }
+
+    /** A text of this mod in the game's language. */
+    static String tr(String path, Object... args) {
+        return net.minecraft.client.resources.language.I18n.get("anvilcostcalculator." + path, args);
+    }
+
+    private static String levels(int n) {
+        return tr(n == 1 ? "levels.one" : "levels", n);
+    }
+
+    private static String enchantedBook() {
+        return Component.translatable("item.minecraft.enchanted_book").getString();
     }
 }

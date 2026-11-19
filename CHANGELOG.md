@@ -6,6 +6,15 @@ Anvil Cost Calculator is versioned semantically (`MAJOR.MINOR.PATCH`).
 It runs on Minecraft 26.3, 26.2 and 26.1 (Fabric + Forge + NeoForge, Java 25) and requires
 [Mycel](https://github.com/MyCelium-GG/MyCel-Lib) (`my.celium.org`).
 
+## [1.3.0] - 2026-11-19
+
+### Added
+- In 11 languages: English, German, Spanish, French, Dutch, Brazilian Portuguese, Russian, Polish, Italian, Japanese and Simplified Chinese.
+- Installed without Mycel, the game still starts: the mod stays off and tells you in chat that Mycel is missing, with a download link.
+
+### Changed
+- Needs Mycel 1.7.0.
+
 ## [Unreleased]
 
 ### Changed

@@ -12,6 +12,11 @@ import net.minecraft.network.chat.Component;
 public final class AnvilCostCalculatorFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("mycel")) {
+            net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
+                    my.celium.org.anvilcostcalculator.MissingMycel::tick);
+            return;
+        }
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             Button button = AnvilButton.create(screen);
             if (button != null) {

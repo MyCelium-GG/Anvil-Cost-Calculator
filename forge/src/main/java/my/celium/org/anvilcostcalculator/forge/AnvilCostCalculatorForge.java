@@ -19,6 +19,15 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 @Mod(AnvilCostCalculatorMod.ID)
 public final class AnvilCostCalculatorForge {
     public AnvilCostCalculatorForge(@SuppressWarnings("unused") FMLJavaModLoadingContext context) {
+        if (!net.minecraftforge.fml.ModList.isLoaded("mycel")) {
+            my.celium.org.anvilcostcalculator.MissingMycel.logOnce();
+            if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+                net.minecraftforge.event.TickEvent.ClientTickEvent.Post.BUS.addListener(
+                        event -> my.celium.org.anvilcostcalculator.MissingMycel.tick(net.minecraft.client.Minecraft.getInstance()));
+            }
+            return;
+        }
+        my.celium.org.anvilcostcalculator.ModGate.open();
         AnvilCostCalculatorMod.init();
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,

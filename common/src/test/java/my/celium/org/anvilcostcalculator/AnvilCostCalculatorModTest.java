@@ -59,7 +59,10 @@ class AnvilCostCalculatorModTest {
     @Test
     void tooltipLineText() {
         assertNull(TooltipLines.line(0));
-        assertEquals("Anvil uses: 2 · Prior work +3 lv", TooltipLines.line(3).getString());
-        assertEquals("Anvil uses: 6 · Prior work +63 lv (maxed)", TooltipLines.line(63).getString());
+        // No language is loaded in tests, so the labels read as keys; the numbers are what matters.
+        String three = TooltipLines.line(3).getString();
+        assertTrue(three.contains(" 2 · ") && three.contains("tooltip.lv") && !three.contains("maxed"), three);
+        String maxed = TooltipLines.line(63).getString();
+        assertTrue(maxed.contains(" 6 · ") && maxed.contains("tooltip.maxed"), maxed);
     }
 }

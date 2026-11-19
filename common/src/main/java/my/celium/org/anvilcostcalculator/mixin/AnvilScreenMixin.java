@@ -23,6 +23,6 @@ abstract class AnvilScreenMixin extends ItemCombinerScreen<AnvilMenu> {
 
     @ModifyConstant(method = "extractLabels", constant = @Constant(intValue = 40))
     private int anvilcostcalculator$levelLimit(int limit) {
-        return AnvilCostCalculatorMod.liftsLevelLimit() && this.menu.getSlot(2).hasItem() ? Integer.MAX_VALUE : limit;
+        return my.celium.org.anvilcostcalculator.ModGate.on() && AnvilCostCalculatorMod.liftsLevelLimit() && this.menu.getSlot(2).hasItem() ? Integer.MAX_VALUE : limit;
     }
 }

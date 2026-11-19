@@ -15,6 +15,6 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 abstract class AnvilMenuMixin {
     @ModifyConstant(method = {"createResult", "createResultInternal"}, constant = @Constant(intValue = 40, ordinal = 2))
     private int anvilcostcalculator$levelLimit(int limit) {
-        return AnvilCostCalculatorMod.liftsLevelLimit() ? Integer.MAX_VALUE : limit;
+        return my.celium.org.anvilcostcalculator.ModGate.on() && AnvilCostCalculatorMod.liftsLevelLimit() ? Integer.MAX_VALUE : limit;
     }
 }
